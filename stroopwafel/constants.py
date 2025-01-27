@@ -2,6 +2,8 @@
 This file will contain all the constants
 """
 ALPHA_IMF = -2.3
+SANA_G = -0.55
+SANA_ECC = -0.45
 
 R_COEFF =\
     [[1.71535900,    0.62246212,     -0.92557761,    -1.16996966,    -0.30631491],\

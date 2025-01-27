@@ -42,3 +42,27 @@ def uniform_in_cosine(dimension, value):
     #return np.abs(np.cos(value)) / norm_const
     #This will assume that all values are already in sin
     return 1.0 / (dimension.max_value - dimension.min_value)
+
+def sana(dimensions, value):
+    """
+    method to calculate priors probability for sana distributions
+    IN:
+        dimension (Dimension) : The dimension to calculate the prior for
+        value (float) : The value at which we are calculating prior probability
+    OUT:
+        (float) : The prior probability
+    """
+    norm_const = (SANA_G + 1) / (np.power(dimensions.max_value, SANA_G + 1) - np.power(dimensions.min_value, SANA_G + 1))
+    return norm_const * np.power(value, SANA_G)
+
+def sana_ecc(dimensions, value):
+    """
+    method to calculate priors probability for sana eccentricity distribution
+    IN:
+        dimension (Dimension) : The dimension to calculate the prior for
+        value (float) : The value at which we are calculating prior probability
+    OUT:
+        (float) : The prior probability
+    """
+    norm_const = (SANA_ECC + 1) / (np.power(dimensions.max_value, SANA_ECC + 1) - np.power(dimensions.min_value, SANA_ECC + 1))
+    return norm_const * np.power(value, SANA_ECC)

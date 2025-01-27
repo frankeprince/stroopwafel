@@ -243,7 +243,19 @@ def calculate_roche_lobe_radius(mass1, mass2):
     return 0.49 / (0.6 + pow(q, -2.0 / 3.0) * math.log(1.0 + pow(q, 1.0 / 3.0)))
 
 def inverse_back(dimension, inverse):
-    norm_factor = (ALPHA_IMF + 1) / (pow(dimension.max_value, ALPHA_IMF + 1) - pow(dimension.min_value, ALPHA_IMF + 1))
-    return norm_factor / pow(inverse * (pow(norm_factor / dimension.max_value, 1 / -ALPHA_IMF) \
-        - pow(norm_factor / dimension.min_value, 1 / -ALPHA_IMF)) \
-        + pow(norm_factor / dimension.min_value, 1 / -ALPHA_IMF), -ALPHA_IMF)
+    if dimension.sampler.__name__ == sp.sana.__name__:
+        norm_factor = (SANA_G + 1) / (pow(dimension.max_value, SANA_G + 1) - pow(dimension.min_value, SANA_G + 1))
+        result = norm_factor / pow(abs(inverse * (pow(norm_factor / dimension.max_value, 1 / -SANA_G) \
+            - pow(norm_factor / dimension.min_value, 1 / -SANA_G)) \
+            + pow(norm_factor / dimension.min_value, 1 / -SANA_G)), -SANA_G)
+        return result
+    elif dimension.sampler.__name__ == sp.sana_ecc.__name__:
+        norm_factor = (SANA_ECC + 1) / (pow(dimension.max_value, SANA_ECC + 1) - pow(dimension.min_value, SANA_ECC + 1))
+        return norm_factor / pow(abs(inverse * (pow(norm_factor / dimension.max_value, 1 / -SANA_G) \
+            - pow(norm_factor / dimension.min_value, 1 / -SANA_ECC)) \
+            + pow(norm_factor / dimension.min_value, 1 / -SANA_ECC)), -SANA_ECC)
+    elif dimension.sampler.__name__ == sp.kroupa.__name__:
+        norm_factor = (ALPHA_IMF + 1) / (pow(dimension.max_value, ALPHA_IMF + 1) - pow(dimension.min_value, ALPHA_IMF + 1))
+        return norm_factor / pow(abs(inverse * (pow(norm_factor / dimension.max_value, 1 / -ALPHA_IMF) \
+            - pow(norm_factor / dimension.min_value, 1 / -ALPHA_IMF)) \
+            + pow(norm_factor / dimension.min_value, 1 / -ALPHA_IMF)), -ALPHA_IMF)

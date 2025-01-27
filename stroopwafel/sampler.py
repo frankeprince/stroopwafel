@@ -86,3 +86,35 @@ def uniform_in_cosine(num_samples, **kwargs):
     x = kwargs['x']
     y = kwargs['y']
     return np.random.uniform(x, y, num_samples)
+
+def sana(num_samples, **kwargs):
+    """
+    method to run a sana sampling for the range [x, y)
+    IN:
+        num_samples (int) : number of samples to be returned
+        x (float) : starting value
+        y (float) : ending value
+    OUT:
+        a list of samples in the range [x, y) considering sana sampling distribution
+    """
+    x = kwargs['x']
+    y = kwargs['y']
+    r = np.random.random(num_samples)
+    xg, yg = x ** (SANA_G + 1), y ** (SANA_G + 1)
+    return (xg + (yg - xg) * r) ** (1 / (SANA_G + 1))
+
+def sana_ecc(num_samples, **kwargs):
+    """
+    method to run a sana_ecc sampling for the range [x, y)
+    IN:
+        num_samples (int) : number of samples to be returned
+        x (float) : starting value
+        y (float) : ending value
+    OUT:
+        a list of samples in the range [x, y) considering sana_ecc sampling distribution
+    """
+    x = kwargs['x']
+    y = kwargs['y']
+    r = np.random.random(num_samples)
+    xg, yg = x ** (SANA_ECC + 1), y ** (SANA_ECC + 1)
+    return (xg + (yg - xg) * r) ** (1 / (SANA_ECC + 1))

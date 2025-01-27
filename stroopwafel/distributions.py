@@ -135,6 +135,20 @@ class Gaussian(NDimensionalDistribution):
             right_distance = abs(inverse_back(dimension, inverse_value + average_density_one_dim) - value)
             left_distance = abs(inverse_back(dimension, inverse_value - average_density_one_dim) - value)
             return max(right_distance, left_distance)
+        elif dimension.sampler.__name__ == sp.sana.__name__:
+            norm_factor = (SANA_G + 1) / (pow(dimension.max_value, SANA_G + 1) - pow(dimension.min_value, SANA_G + 1))
+            inverse_value = (pow(norm_factor / value, 1 / -SANA_G) - pow(norm_factor / dimension.min_value, 1 / -SANA_G)) / \
+            (pow(norm_factor / dimension.max_value, 1 / -SANA_G) - pow(norm_factor / dimension.min_value, 1 / -SANA_G))
+            right_distance = abs(inverse_back(dimension, inverse_value + average_density_one_dim) - value)
+            left_distance = abs(inverse_back(dimension, inverse_value - average_density_one_dim) - value)
+            return max(right_distance, left_distance)
+        elif dimension.sampler.__name__ == sp.sana_ecc.__name__:
+            norm_factor = (SANA_ECC + 1) / (pow(dimension.max_value, SANA_ECC + 1) - pow(dimension.min_value, SANA_ECC + 1))
+            inverse_value = (pow(norm_factor / value, 1 / -SANA_ECC) - pow(norm_factor / dimension.min_value, 1 / -SANA_ECC)) / \
+            (pow(norm_factor / dimension.max_value, 1 / -SANA_ECC) - pow(norm_factor / dimension.min_value, 1 / -SANA_ECC))
+            right_distance = abs(inverse_back(dimension, inverse_value + average_density_one_dim) - value)
+            left_distance = abs(inverse_back(dimension, inverse_value - average_density_one_dim) - value)
+            return max(right_distance, left_distance)
         else:
             return average_density_one_dim / dimension.prior(dimension, value)
 

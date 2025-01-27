@@ -104,6 +104,8 @@ class Location:
                 self.dimensions[dimension] = np.arcsin(value)
             elif dimension.sampler.__name__ == sp.uniform_in_cosine.__name__:
                 self.dimensions[dimension] = np.arccos(value) - np.pi / 2
+            elif dimension.sampler.__name__ == sp.sana.__name__:
+                self.dimensions[dimension] = np.power(10, value)
 
     """
     Converts each value of the location to the new transformed scale
@@ -116,6 +118,8 @@ class Location:
                 self.dimensions[dimension] = np.sin(value)
             elif dimension.sampler.__name__ == sp.uniform_in_cosine.__name__:
                 self.dimensions[dimension] = np.cos(value + np.pi / 2)
+            elif dimension.sampler.__name__ == sp.sana.__name__:
+                self.dimensions[dimension] = np.log10(value)
 
     def calculate_prior_probability(self):
         p = 1
