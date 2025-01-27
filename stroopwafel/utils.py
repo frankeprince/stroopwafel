@@ -5,6 +5,7 @@ import csv
 from .classes import Location
 from .constants import *
 import math
+from . import sampler as sp
 
 def generate_grid(locations, filename):
     """
@@ -29,6 +30,32 @@ def generate_grid(locations, filename):
     DELIMITER = ' '
     np.savetxt(filename, grid, fmt = "%s", delimiter = DELIMITER, comments = '')
 
+def generate_grid_cosmic(locations):
+    """
+    Function which generates a dictionary with values for each dimension
+    IN:
+        locations (list[Location]) : list of locations to be added to the dictionary
+    OUT:
+        dictionary with values for each dimension
+    """
+    grid = dict()
+    for key, value in locations[0].dimensions.items():
+        if key.should_print:
+            grid[key.name] = []
+    for key, value in locations[0].properties.items():
+        if key in ['generation', 'gaussian']:
+            continue
+        grid[key] = []
+    for location in locations:
+        for key, value in location.dimensions.items():
+            if key.should_print:
+                grid[key.name].append(value)
+        for key, value in location.properties.items():
+            if key in ['generation', 'gaussian']:
+                continue
+            grid[key].append(value)
+    return grid
+    
 #copied from stack overflow
 def printProgressBar (iteration, total, prefix = '', suffix = '', decimals = 1, length = 100, fill = '|', autosize = False):
     """
