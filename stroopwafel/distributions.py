@@ -57,6 +57,7 @@ class InitialDistribution(NDimensionalDistribution):
 
     def calculate_rejection_rate(self, update_properties, rejected_systems, dimensions):
         num_samples = int(TOTAL_REJECTION_SAMPLES)
+        num_samples = 100000
         (locations, mask) = self.run_sampler(num_samples)
         rejected = num_samples - np.sum(mask)
         locations = np.asarray(locations)[mask]

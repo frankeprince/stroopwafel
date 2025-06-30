@@ -1,0 +1,17 @@
+#!/bin/bash
+# use the bash shell
+#SBATCH -p SIRIUS
+#SBATCH -t 48:00:00   
+#SBATCH -N 1
+#SBATCH --ntasks=96
+#SBATCH --mem=700G   
+#SBATCH --account=phy230054p
+
+
+set -x    # echo each command to standard out before running it
+source /opt/packages/anaconda3/etc/profile.d/conda.sh
+conda activate cogsworth
+cd /hildafs/projects/phy230054p/fep/stroopwafel_dir/stroopwafel/tests
+python BHBH_testing.py --num_systems=20000000 --num_cores=96 --num_per_core=10000 &> BHBH_testing.txt
+# jupyter nbconvert --to notebook --execute --inplace --ExecutePreprocessor.timeout=None test_runtime.ipynb
+# jupyter nbconvert --to notebook --execute --inplace --ExecutePreprocessor.timeout=None test.ipynb

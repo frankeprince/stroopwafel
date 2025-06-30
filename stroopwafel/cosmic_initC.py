@@ -266,14 +266,6 @@ class Cosmic:
             hits = 0
             hits, mask = self.interesting_systems_method(batch)
             #update gaussian, generation, and is_hit
-            # for bin_num, location in enumerate(batch['samples']):
-            #     batch['bpp'].loc[batch['bpp']['bin_num'] == bin_num, 'gaussian'] = location.properties['gaussian']
-            #     batch['bpp'].loc[batch['bpp']['bin_num'] == bin_num, 'generation'] = location.properties['generation']
-            #     batch['bpp'].loc[batch['bpp']['bin_num'] == bin_num, 'is_hit'] = location.properties['is_hit']
-            #     batch['initC'].loc[batch['initC']['bin_num'] == bin_num, 'gaussian'] = location.properties['gaussian']
-            #     batch['initC'].loc[batch['initC']['bin_num'] == bin_num, 'generation'] = location.properties['generation']
-            #     batch['initC'].loc[batch['initC']['bin_num'] == bin_num, 'is_hit'] = location.properties['is_hit']
-            #faster?:
             bin_nums = list(range(len(batch['samples'])))
             gaussian_map = dict(zip(bin_nums, [location.properties['gaussian'] for location in batch['samples']]))
             generation_map = dict(zip(bin_nums, [location.properties['generation'] for location in batch['samples']]))
@@ -289,8 +281,6 @@ class Cosmic:
             batch['initC']['is_hit'] = batch['initC']['bin_num'].map(is_hit_map)
 
             # #adjust bin num according to batch number
-            # batch['bpp']['bin_num'] += batch['number'] * self.num_samples_per_batch
-            # batch['initC']['bin_num'] += batch['number'] * self.num_samples_per_batch
             batch['bpp']['bin_num'] += self.finished
             batch['initC']['bin_num'] += self.finished
             batch['kick_info']['bin_num'] += self.finished
@@ -301,10 +291,10 @@ class Cosmic:
 
             # Collect bpp and initC DataFrames from each batch
             # self.all_bpp.append(batch['bpp'])
-            self.all_bpp.append(first_DCO_only)
-            # self.all_initC.append(batch['initC'])
+            # self.all_bpp.append(first_DCO_only)
+            self.all_initC.append(batch['initC'])
             # self.all_kicks.append(batch['kick_info'])
-            self.all_kicks.append(DCO_kicks_only)
+            # self.all_kicks.append(DCO_kicks_only)
             self.num_hits += hits
             # self.finished += self.num_samples_per_batch #OLD
             self.finished += len(batch['samples'])
@@ -435,31 +425,28 @@ class Cosmic:
         print_samples(locations, self.output_filename, 'w')
         # Concatenate bpp and initC DataFrames from all batches
         concat_start = time.time()
-        full_bpp = pd.concat(self.all_bpp, ignore_index=True)
-        # full_initC = pd.concat(self.all_initC, ignore_index=True)
-        full_kicks = pd.concat(self.all_kicks, ignore_index=True)
+        # full_bpp = pd.concat(self.all_bpp, ignore_index=True)
+        full_initC = pd.concat(self.all_initC, ignore_index=True)
+        # full_kicks = pd.concat(self.all_kicks, ignore_index=True)
         concat_end = time.time()
 
         # Update gaussian, generation, is_hit, and mixture_weight in full_bpp and full_initC
         update_start = time.time()
-        # for bin_num in range(len(locations)):
-        #     full_bpp.loc[full_bpp['bin_num'] == bin_num, 'mixture_weight'] = weights[bin_num]
-        #     full_initC.loc[full_initC['bin_num'] == bin_num, 'mixture_weight'] = weights[bin_num]
         bin_nums = range(len(locations))
-        full_bpp.loc[full_bpp['bin_num'].isin(bin_nums), 'mixture_weight'] = full_bpp['bin_num'].map(dict(zip(bin_nums, weights)))
-        # full_initC.loc[full_initC['bin_num'].isin(bin_nums), 'mixture_weight'] = full_initC['bin_num'].map(dict(zip(bin_nums, weights)))
+        # full_bpp.loc[full_bpp['bin_num'].isin(bin_nums), 'mixture_weight'] = full_bpp['bin_num'].map(dict(zip(bin_nums, weights)))
+        full_initC['mixture_weight'] = full_initC['mixture_weight'].astype('float64')
+        full_initC.loc[full_initC['bin_num'].isin(bin_nums), 'mixture_weight'] = full_initC['bin_num'].map(dict(zip(bin_nums, weights)))
         update_end = time.time()
 
-        print(full_bpp)
         # print(full_initC)
         print("Locations: ", len(locations))
         print("Weights: ", len(weights))
 
         # Save full_bpp and full_initC to h5 files
         save_start = time.time()
-        full_bpp.to_hdf(os.path.join(self.output_folder, self.cosmic_filename), key='bpp', mode='w')
-        # full_initC.to_hdf(os.path.join(self.output_folder, self.cosmic_filename), key='initC', mode='a')
-        full_kicks.to_hdf(os.path.join(self.output_folder, self.cosmic_filename), key='kick_info', mode='a')
+        # full_bpp.to_hdf(os.path.join(self.output_folder, self.cosmic_filename), key='bpp', mode='w')
+        full_initC.to_hdf(os.path.join(self.output_folder, self.cosmic_filename), key='initC', mode='w')
+        # full_kicks.to_hdf(os.path.join(self.output_folder, self.cosmic_filename), key='kick_info', mode='a')
         save_end = time.time()
         print("Evolve time: ", self.evolve_time)
         print("Reject time: ", self.reject_time)

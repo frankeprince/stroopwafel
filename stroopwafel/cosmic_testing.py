@@ -78,6 +78,7 @@ class Cosmic:
         self.batch_num = 0
         self.num_explored = 0
         self.finished = 0
+        self.finished_DCOs = 0
         self.num_hits = 0
         self.fraction_explored = 1
         printProgressBar(0, self.total_num_systems, prefix = 'progress', suffix = 'complete', length = 20)
@@ -296,15 +297,33 @@ class Cosmic:
             batch['kick_info']['bin_num'] += self.finished
 
             first_DCO_only = batch['bpp'].loc[mask].drop_duplicates(subset=['bin_num'], keep='first')
-            kick_bin_nums = batch['kick_info'].bin_num
-            DCO_kicks_only = batch['kick_info'].loc[kick_bin_nums.isin(first_DCO_only.bin_num)]
+            DCO_initC = batch['initC'].loc[batch['initC'].bin_num.isin(first_DCO_only.bin_num)]
+
+            trimmed_initC = batch['initC'][['mass_1', 'mass_2', 
+                                            'metallicity', 'kstar_1', 
+                                            'kstar_2', 'bin_num']]
+
+            # Adjust indices and save to h5 files
+            DCO_initC = DCO_initC.reset_index(drop=True)
+            DCO_initC.index += self.finished_DCOs
+            self.finished_DCOs += len(DCO_initC)
+            trimmed_initC.index += self.finished
+            DCO_initC.to_hdf(os.path.join(self.output_folder, self.cosmic_filename), 
+                                key='initC', mode='a', format='table', data_columns=['is_hit'], 
+                                append=True)
+            trimmed_initC.to_hdf(os.path.join(self.output_folder, self.cosmic_filename),
+                                key='full_initC', mode='a', format='table', data_columns=['is_hit'],
+                                append=True)
+            # batch['initC'].to_hdf(os.path.join(self.output_folder, self.cosmic_filename), 
+            #                       key='initC', mode='a', format='table', data_columns=['is_hit'], 
+            #                       append=True)
 
             # Collect bpp and initC DataFrames from each batch
             # self.all_bpp.append(batch['bpp'])
-            self.all_bpp.append(first_DCO_only)
+            # self.all_bpp.append(first_DCO_only)
             # self.all_initC.append(batch['initC'])
             # self.all_kicks.append(batch['kick_info'])
-            self.all_kicks.append(DCO_kicks_only)
+            # self.all_kicks.append(DCO_kicks_only)
             self.num_hits += hits
             # self.finished += self.num_samples_per_batch #OLD
             self.finished += len(batch['samples'])
@@ -435,9 +454,9 @@ class Cosmic:
         print_samples(locations, self.output_filename, 'w')
         # Concatenate bpp and initC DataFrames from all batches
         concat_start = time.time()
-        full_bpp = pd.concat(self.all_bpp, ignore_index=True)
+        # full_bpp = pd.concat(self.all_bpp, ignore_index=True)
         # full_initC = pd.concat(self.all_initC, ignore_index=True)
-        full_kicks = pd.concat(self.all_kicks, ignore_index=True)
+        # full_kicks = pd.concat(self.all_kicks, ignore_index=True)
         concat_end = time.time()
 
         # Update gaussian, generation, is_hit, and mixture_weight in full_bpp and full_initC
@@ -446,20 +465,23 @@ class Cosmic:
         #     full_bpp.loc[full_bpp['bin_num'] == bin_num, 'mixture_weight'] = weights[bin_num]
         #     full_initC.loc[full_initC['bin_num'] == bin_num, 'mixture_weight'] = weights[bin_num]
         bin_nums = range(len(locations))
-        full_bpp.loc[full_bpp['bin_num'].isin(bin_nums), 'mixture_weight'] = full_bpp['bin_num'].map(dict(zip(bin_nums, weights)))
+        # full_bpp.loc[full_bpp['bin_num'].isin(bin_nums), 'mixture_weight'] = full_bpp['bin_num'].map(dict(zip(bin_nums, weights)))
         # full_initC.loc[full_initC['bin_num'].isin(bin_nums), 'mixture_weight'] = full_initC['bin_num'].map(dict(zip(bin_nums, weights)))
         update_end = time.time()
 
-        print(full_bpp)
+        # print(full_bpp)
         # print(full_initC)
         print("Locations: ", len(locations))
         print("Weights: ", len(weights))
 
+        df_weights = pd.DataFrame({'bin_num': bin_nums, 'mixture_weight': weights})
+
         # Save full_bpp and full_initC to h5 files
         save_start = time.time()
-        full_bpp.to_hdf(os.path.join(self.output_folder, self.cosmic_filename), key='bpp', mode='w')
+        df_weights.to_hdf(os.path.join(self.output_folder, self.cosmic_filename), key='weights', format='table', mode='a', append=True)
+        # full_bpp.to_hdf(os.path.join(self.output_folder, self.cosmic_filename), key='bpp', mode='w')
         # full_initC.to_hdf(os.path.join(self.output_folder, self.cosmic_filename), key='initC', mode='a')
-        full_kicks.to_hdf(os.path.join(self.output_folder, self.cosmic_filename), key='kick_info', mode='a')
+        # full_kicks.to_hdf(os.path.join(self.output_folder, self.cosmic_filename), key='kick_info', mode='a')
         save_end = time.time()
         print("Evolve time: ", self.evolve_time)
         print("Reject time: ", self.reject_time)

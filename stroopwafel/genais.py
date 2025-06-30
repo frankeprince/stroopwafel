@@ -6,18 +6,31 @@ from .distributions import Gaussian
 from .classes import Location
 from .constants import *
 import sys
+# Add pandas import
+import pandas as pd
+import time
+from schwimmbad import MultiPool
 
 class Genais:
 
-    def __init__(self, total_num_systems, num_batches_in_parallel, num_samples_per_batch, output_folder, output_filename, debug = False, run_on_helios = True, mc_only = False):
+    def __init__(self, total_num_systems, num_batches_in_parallel, num_samples_per_batch, output_folder, output_filename, cosmic_filename, debug = False, run_on_helios = True, mc_only = False):
         self.total_num_systems = total_num_systems
-        self.num_batches_in_parallel = num_batches_in_parallel
+        # self.num_batches_in_parallel = num_batches_in_parallel #for COMPAS
+        self.num_batches_in_parallel = 1 #for cosmic
         self.num_samples_per_batch = num_samples_per_batch
         self.output_folder = output_folder
         self.output_filename = os.path.join(self.output_folder, output_filename)
+        self.cosmic_filename = os.path.join(self.output_folder, cosmic_filename)
         self.debug = debug
         self.run_on_helios = run_on_helios
         self.mc_only = mc_only
+        # Initialize lists to collect bpp and initC DataFrames from batches
+        self.all_bpp = []
+        self.all_initC = []
+        # Initialize bin_num counter
+        self.current_bin_num = 0
+        self.evolve_time = 0
+        self.reject_time = 0
 
     def update_fraction_explored(self):
         """
@@ -65,6 +78,7 @@ class Genais:
         IN:
             initial_pdf (NDimensionalDistribution) : An instance of NDimensionalDistribution showing how to sample from in the exploration phase
         """
+        print("Exploration phase started")
         if not self.mc_only:
             self.prior_fraction_rejected = intial_pdf.calculate_rejection_rate(self.update_properties_method, self.rejected_systems_method, self.dimensions)
             print_logs(self.output_folder, "prior_fraction_rejected", self.prior_fraction_rejected)
@@ -76,6 +90,7 @@ class Genais:
                 current_batch = dict()
                 current_batch['number'] = self.batch_num
                 num_samples = int(2 * np.ceil(self.num_samples_per_batch / (1 - self.prior_fraction_rejected)))
+                print("NUM SAMPLES---------------", num_samples)
                 (locations, mask) = intial_pdf.run_sampler(num_samples)
                 [location.revert_variables_to_original_scales() for location in locations]
                 [location.properties.update({'generation': 0}) for location in locations]
@@ -83,18 +98,25 @@ class Genais:
                 if self.update_properties_method != None:
                     self.update_properties_method(locations, self.dimensions)
                 if self.rejected_systems_method != None:
-                    self.rejected_systems_method(locations, self.dimensions)
+                    rejected = self.rejected_systems_method(locations, self.dimensions)
+                    print("rejected systems: ", rejected)   
                 locations[:] = [location for location in locations if location.properties.get('is_rejected', 0) == 0]
                 np.random.shuffle(locations)
                 locations = locations[:self.num_samples_per_batch]
                 [location.properties.pop('is_rejected', None) for location in locations]
                 current_batch['samples'] = locations
+                # generate_grid(locations, current_batch['grid_filename']) #for COMPAS
+                grid = generate_grid_cosmic(locations) #for cosmic
+                current_batch['grid'] = grid
+                evol_start = time.time()
                 command = self.configure_code_run(current_batch)
-                generate_grid(locations, current_batch['grid_filename'])
-                current_batch['process'] = run_code(command, current_batch['number'], self.output_folder, self.debug, self.run_on_helios)
+                evol_end = time.time()
+                self.evolve_time += evol_end - evol_start
+                # current_batch['process'] = run_code(command, current_batch['number'], self.output_folder, self.debug, self.run_on_helios) #for COMPAS
                 batches.append(current_batch)
                 self.batch_num = self.batch_num + 1
-            self.process_batches(batches, True)
+            # self.process_batches(batches, True) #for COMPAS
+            self.process_batches_cosmic(batches, True) #for cosmic
         self.num_hits_exploratory = self.num_hits
         print_logs(self.output_folder, "num_explored", self.num_explored)
         if self.mc_only:
@@ -154,12 +176,16 @@ class Genais:
                     current_batch['samples'] = locations_ref
                     [location.properties.update({'generation': generation + 1}) for location in locations_ref]
                     samples.extend(locations_ref)
+                    grid = generate_grid_cosmic(locations_ref) #for cosmic
+                    current_batch['grid'] = grid
+                    evol_start = time.time()
                     command = self.configure_code_run(current_batch)
-                    generate_grid(locations_ref, current_batch['grid_filename'])
-                    current_batch['process'] = run_code(command, current_batch['number'], self.output_folder, self.debug, self.run_on_helios)
+                    evol_end = time.time()
+                    self.evolve_time += evol_end - evol_start
+                    # current_batch['process'] = run_code(command, current_batch['number'], self.output_folder, self.debug, self.run_on_helios)
                     batches.append(current_batch)
                     self.batch_num = self.batch_num + 1
-                self.process_batches(batches, False)
+                self.process_batches_cosmic(batches, False)
             if generation < NUM_GENERATIONS - 1 and self.should_update:
                 self.update_distributions(samples, tolerance = 1e-10)
             if self.finished >= self.total_num_systems:
@@ -178,6 +204,8 @@ class Genais:
         for batch in batches:
             if batch['process']:
                 returncode = batch['process'].wait()
+            if not os.path.exists(os.path.join(self.output_folder, batch['output_container'])): #create batch folder
+                os.makedirs(os.path.join(self.output_folder, batch['output_container']))
             folder = os.path.join(self.output_folder, batch['output_container'])
             shutil.move(batch['grid_filename'], os.path.join(folder, 'grid_' + str(batch['number']) + '.csv'))
             [location.properties.update({'is_hit': 0}) for location in batch['samples']]
@@ -189,6 +217,57 @@ class Genais:
                 shutil.rmtree(os.path.join(self.output_folder, 'batch_' + str(batch['number'])))
                 self.batch_num = self.batch_num - 1
                 continue
+            self.num_hits += hits
+            self.finished += self.num_samples_per_batch
+            print_samples(batch['samples'], self.output_filename, 'a')
+            if is_exploration_phase:
+                self.num_explored += self.num_samples_per_batch
+                self.update_fraction_explored()
+            else:
+                self.num_samples_per_generation -= self.num_samples_per_batch
+            printProgressBar(self.finished, self.total_num_systems, prefix = 'progress', suffix = 'complete', length = 20)
+
+
+    def process_batches_cosmic(self, batches, is_exploration_phase):
+        for batch in batches:
+            # if batch['process']:
+            #     returncode = batch['process'].wait()
+            # if not os.path.exists(os.path.join(self.output_folder, batch['output_container'])): #create batch folder
+            #     os.makedirs(os.path.join(self.output_folder, batch['output_container']))
+            # folder = os.path.join(self.output_folder, batch['output_container'])
+            # shutil.move(batch['grid_filename'], os.path.join(folder, 'grid_' + str(batch['number']) + '.csv'))
+            [location.properties.update({'is_hit': 0}) for location in batch['samples']]
+           
+            #Initialize columns in bpp and initC
+            batch['bpp']['gaussian'] = -1
+            batch['bpp']['generation'] = 0
+            batch['bpp']['is_hit'] = 0
+            batch['bpp']['mixture_weight'] = 0
+
+            batch['initC']['gaussian'] = -1
+            batch['initC']['generation'] = 0
+            batch['initC']['is_hit'] = 0
+            batch['initC']['mixture_weight'] = 0
+            
+
+            hits = 0
+            hits = self.interesting_systems_method(batch)
+            #update gaussian, generation, and is_hit
+            for bin_num, location in enumerate(batch['samples']):
+                batch['bpp'].loc[batch['bpp']['bin_num'] == bin_num, 'gaussian'] = location.properties['gaussian']
+                batch['bpp'].loc[batch['bpp']['bin_num'] == bin_num, 'generation'] = location.properties['generation']
+                batch['bpp'].loc[batch['bpp']['bin_num'] == bin_num, 'is_hit'] = location.properties['is_hit']
+                batch['initC'].loc[batch['initC']['bin_num'] == bin_num, 'gaussian'] = location.properties['gaussian']
+                batch['initC'].loc[batch['initC']['bin_num'] == bin_num, 'generation'] = location.properties['generation']
+                batch['initC'].loc[batch['initC']['bin_num'] == bin_num, 'is_hit'] = location.properties['is_hit']
+
+            #adjust bin num according to batch number
+            batch['bpp']['bin_num'] += batch['number'] * self.num_samples_per_batch
+            batch['initC']['bin_num'] += batch['number'] * self.num_samples_per_batch
+
+            # Collect bpp and initC DataFrames from each batch
+            self.all_bpp.append(batch['bpp'])
+            self.all_initC.append(batch['initC'])
             self.num_hits += hits
             self.finished += self.num_samples_per_batch
             print_samples(batch['samples'], self.output_filename, 'a')
@@ -263,7 +342,9 @@ class Genais:
         # self.add_original_forgotten_distributions()
 
     def calculate_weights_of_samples(self):
+        reading_start = time.time()
         locations = read_samples(self.output_filename, self.dimensions)
+        reading_end = time.time()
         [location.transform_variables_to_new_scales() for location in locations]
         pi_norm = 1.0 / (1 - self.prior_fraction_rejected)
         pi = []
@@ -275,6 +356,7 @@ class Genais:
         samples = np.asarray(samples)
         fraction_explored = self.num_explored / float(num_samples)
         den = np.ones(num_samples) * (fraction_explored) * pi
+        gen_loop_start = time.time()
         for generation in range(NUM_GENERATIONS):
             distributions = self.read_distributions(generation + 1)
             num_distributions = len(distributions)
@@ -293,23 +375,74 @@ class Genais:
             q_norm = 1 / (1 - distributions[0].rejection_rate)
             q_PDF = xPDF * np.asarray(alpha)
             den += (np.sum(q_PDF, axis = 1) * (1 - fraction_explored) * q_norm) / NUM_GENERATIONS
+        gen_loop_end = time.time()
         weights = pi / den
         [location.properties.update({'mixture_weight' : weights[index]}) for index, location in enumerate(locations)]
         [location.revert_variables_to_original_scales() for location in locations]
         print_samples(locations, self.output_filename, 'w')
+        # Concatenate bpp and initC DataFrames from all batches
+        concat_start = time.time()
+        full_bpp = pd.concat(self.all_bpp, ignore_index=True)
+        full_initC = pd.concat(self.all_initC, ignore_index=True)
+        concat_end = time.time()
+
+        # Update gaussian, generation, is_hit, and mixture_weight in full_bpp and full_initC
+        update_start = time.time()
+        # for bin_num in range(len(locations)):
+        #     full_bpp.loc[full_bpp['bin_num'] == bin_num, 'mixture_weight'] = weights[bin_num]
+        #     full_initC.loc[full_initC['bin_num'] == bin_num, 'mixture_weight'] = weights[bin_num]
+        bin_nums = range(len(locations))
+        full_bpp.loc[full_bpp['bin_num'].isin(bin_nums), 'mixture_weight'] = full_bpp['bin_num'].map(dict(zip(bin_nums, weights)))
+        full_initC.loc[full_initC['bin_num'].isin(bin_nums), 'mixture_weight'] = full_initC['bin_num'].map(dict(zip(bin_nums, weights)))
+        update_end = time.time()
+
+        print(full_bpp)
+        print(full_initC)
+
+        # Save full_bpp and full_initC to h5 files
+        save_start = time.time()
+        full_bpp.to_hdf(os.path.join(self.output_folder, self.cosmic_filename), key='bpp', mode='w')
+        full_initC.to_hdf(os.path.join(self.output_folder, self.cosmic_filename), key='initC', mode='a')
+        save_end = time.time()
+        print("Evolve time: ", self.evolve_time)
+        print("Reject time: ", self.reject_time)
+        print("Concat time: ", concat_end - concat_start)
+        print("Save time: ", save_end - save_start)
+        print("Gen loop time: ", gen_loop_end - gen_loop_start)
+        print("Update time: ", update_end - update_start)
+        print("Reading time: ", reading_end - reading_start)
 
     def calculate_rejection_rate(self):
         fractional_rejected = 0
         N_GAUSS = 10000
-        for distribution in self.adapted_distributions:
-            (locations, mask) = distribution.run_sampler(N_GAUSS, self.dimensions)
-            rejected = N_GAUSS - np.sum(mask)
-            locations = np.asarray(locations)[mask]
-            [location.revert_variables_to_original_scales() for location in locations]
-            self.update_properties_method(locations, self.dimensions)
-            rejected += self.rejected_systems_method(locations, self.dimensions)
-            fractional_rejected += rejected * distribution.alpha / N_GAUSS
+        # N_GAUSS = 1000
+        reject_start = time.time()
+        print("Calculating rejection rate")
+        print("Number of gaussians: ", len(self.adapted_distributions))
+        # for distribution in self.adapted_distributions:
+        #     (locations, mask) = distribution.run_sampler(N_GAUSS, self.dimensions)
+        #     rejected = N_GAUSS - np.sum(mask)
+        #     locations = np.asarray(locations)[mask]
+        #     print("Locations: ", len(locations))
+        #     [location.revert_variables_to_original_scales() for location in locations]
+        #     self.update_properties_method(locations, self.dimensions)
+        #     rejected += self.rejected_systems_method(locations, self.dimensions)
+        #     fractional_rejected += rejected * distribution.alpha / N_GAUSS
+        with MultiPool() as pool:
+            fractional_rejected = np.sum(pool.map(self.dist_rejection_rate, self.adapted_distributions))
+        reject_end = time.time()
+        self.reject_time += reject_end - reject_start
         return fractional_rejected
+    
+    def dist_rejection_rate(self, distribution):
+        N_GAUSS = 10000
+        (locations, mask) = distribution.run_sampler(N_GAUSS, self.dimensions)
+        rejected = N_GAUSS - np.sum(mask)
+        locations = np.asarray(locations)[mask]
+        [location.revert_variables_to_original_scales() for location in locations]
+        self.update_properties_method(locations, self.dimensions)
+        rejected += self.rejected_systems_method(locations, self.dimensions)
+        return rejected * distribution.alpha / N_GAUSS
 
     def print_distributions(self, distributions, generation_number):
         num_distributions = len(distributions)
