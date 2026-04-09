@@ -24,7 +24,84 @@ parser.add_argument('--mc_only', help = 'If run in MC simulation mode only', typ
 parser.add_argument('--run_on_helios', help = 'If we are running on helios (or other slurm) nodes', type = bool, default = False)
 parser.add_argument('--output_filename', help = 'Output filename', default = 'samples.csv')
 parser.add_argument('--pairs', help = "Pairs to select for", default = 'all')
+parser.add_argument('--model', help = 'Physics variation', default='fiducial')
 namespace, extra_params = parser.parse_known_args()
+
+fiducial = {'xi': 1.0, 'bhflag': 1, 'neta': 0.5, 'windflag': 3, 'wdflag': 1, 'alpha1': 1.0, 'pts1': 0.001, 'pts3': 0.02, 
+            'pts2': 0.01, 'epsnov': 0.001, 'hewind': 0.5, 'ck': 1000, 'bwind': 0.0, 'lambdaf': 0.0, 'mxns': 3.0, 'beta': -1.0, 
+            'tflag': 1, 'acc2': 1.5, 'grflag' : 1, 'remnantflag': 4, 'ceflag': 0, 'eddfac': 1.0, 'ifflag': 0, 'bconst': 3000, 
+            'sigma': 265.0, 'gamma': -2.0, 'pisn': 45.0, 
+            'natal_kick_array' : [[-100.0,-100.0,-100.0,-100.0,0.0], [-100.0,-100.0,-100.0,-100.0,0.0]], 'bhsigmafrac' : 1.0, 
+            'polar_kick_angle' : 90, 'qcrit_array' : [0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0], 
+            'cekickflag' : 2, 'cehestarflag' : 0, 'cemergeflag' : 0, 'ecsn' : 2.5, 'ecsn_mlow' : 1.8, 'aic' : 1, 'ussn' : 0, 
+            'sigmadiv' :-20.0, 'qcflag' : 5, 'eddlimflag' : 0, 
+            'fprimc_array' : [2.0/21.0,2.0/21.0,2.0/21.0,2.0/21.0,2.0/21.0,2.0/21.0,2.0/21.0,2.0/21.0,2.0/21.0,2.0/21.0,2.0/21.0,2.0/21.0,2.0/21.0,2.0/21.0,2.0/21.0,2.0/21.0], 
+            'bhspinflag' : 0, 'bhspinmag' : 0.0, 'rejuv_fac' : 1.0, 'rejuvflag' : 0, 'htpmb' : 1, 'ST_cr' : 1, 'ST_tide' : 1, 
+            'bdecayfac' : 1, 'rembar_massloss' : 0.5, 'kickflag' : 5, 'zsun' : 0.014, 'bhms_coll_flag' : 0, 'don_lim' : -1, 
+            'acc_lim' : -1, 'rtmsflag' : 0, 'wd_mass_lim': 1}
+
+kick_var = {'xi': 1.0, 'bhflag': 1, 'neta': 0.5, 'windflag': 3, 'wdflag': 1, 'alpha1': 1.0, 'pts1': 0.001, 'pts3': 0.02, 
+            'pts2': 0.01, 'epsnov': 0.001, 'hewind': 0.5, 'ck': 1000, 'bwind': 0.0, 'lambdaf': 0.0, 'mxns': 3.0, 'beta': -1.0, 
+            'tflag': 1, 'acc2': 1.5, 'grflag' : 1, 'remnantflag': 4, 'ceflag': 0, 'eddfac': 1.0, 'ifflag': 0, 'bconst': 3000, 
+            'sigma': 265.0, 'gamma': -2.0, 'pisn': 45.0, 
+            'natal_kick_array' : [[-100.0,-100.0,-100.0,-100.0,0.0], [-100.0,-100.0,-100.0,-100.0,0.0]], 'bhsigmafrac' : 1.0, 
+            'polar_kick_angle' : 90, 'qcrit_array' : [0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0], 
+            'cekickflag' : 2, 'cehestarflag' : 0, 'cemergeflag' : 0, 'ecsn' : 2.5, 'ecsn_mlow' : 1.8, 'aic' : 1, 'ussn' : 0, 
+            'sigmadiv' :-20.0, 'qcflag' : 5, 'eddlimflag' : 0, 
+            'fprimc_array' : [2.0/21.0,2.0/21.0,2.0/21.0,2.0/21.0,2.0/21.0,2.0/21.0,2.0/21.0,2.0/21.0,2.0/21.0,2.0/21.0,2.0/21.0,2.0/21.0,2.0/21.0,2.0/21.0,2.0/21.0,2.0/21.0], 
+            'bhspinflag' : 0, 'bhspinmag' : 0.0, 'rejuv_fac' : 1.0, 'rejuvflag' : 0, 'htpmb' : 1, 'ST_cr' : 1, 'ST_tide' : 1, 
+            'bdecayfac' : 1, 'rembar_massloss' : 0.5, 'kickflag' : 1, 'zsun' : 0.014, 'bhms_coll_flag' : 0, 'don_lim' : -1, 
+            'acc_lim' : -1, 'rtmsflag' : 0, 'wd_mass_lim': 1}
+
+qc_var = {'xi': 1.0, 'bhflag': 1, 'neta': 0.5, 'windflag': 3, 'wdflag': 1, 'alpha1': 1.0, 'pts1': 0.001, 'pts3': 0.02, 
+            'pts2': 0.01, 'epsnov': 0.001, 'hewind': 0.5, 'ck': 1000, 'bwind': 0.0, 'lambdaf': 0.0, 'mxns': 3.0, 'beta': -1.0, 
+            'tflag': 1, 'acc2': 1.5, 'grflag' : 1, 'remnantflag': 4, 'ceflag': 0, 'eddfac': 1.0, 'ifflag': 0, 'bconst': 3000, 
+            'sigma': 265.0, 'gamma': -2.0, 'pisn': 45.0, 
+            'natal_kick_array' : [[-100.0,-100.0,-100.0,-100.0,0.0], [-100.0,-100.0,-100.0,-100.0,0.0]], 'bhsigmafrac' : 1.0, 
+            'polar_kick_angle' : 90, 'qcrit_array' : [0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0], 
+            'cekickflag' : 2, 'cehestarflag' : 0, 'cemergeflag' : 0, 'ecsn' : 2.5, 'ecsn_mlow' : 1.8, 'aic' : 1, 'ussn' : 0, 
+            'sigmadiv' :-20.0, 'qcflag' : 2, 'eddlimflag' : 0, 
+            'fprimc_array' : [2.0/21.0,2.0/21.0,2.0/21.0,2.0/21.0,2.0/21.0,2.0/21.0,2.0/21.0,2.0/21.0,2.0/21.0,2.0/21.0,2.0/21.0,2.0/21.0,2.0/21.0,2.0/21.0,2.0/21.0,2.0/21.0], 
+            'bhspinflag' : 0, 'bhspinmag' : 0.0, 'rejuv_fac' : 1.0, 'rejuvflag' : 0, 'htpmb' : 1, 'ST_cr' : 1, 'ST_tide' : 1, 
+            'bdecayfac' : 1, 'rembar_massloss' : 0.5, 'kickflag' : 5, 'zsun' : 0.014, 'bhms_coll_flag' : 0, 'don_lim' : -1, 
+            'acc_lim' : -1, 'rtmsflag' : 0, 'wd_mass_lim': 1}
+
+ecsn_var = {'xi': 1.0, 'bhflag': 1, 'neta': 0.5, 'windflag': 3, 'wdflag': 1, 'alpha1': 1.0, 'pts1': 0.001, 'pts3': 0.02, 
+            'pts2': 0.01, 'epsnov': 0.001, 'hewind': 0.5, 'ck': 1000, 'bwind': 0.0, 'lambdaf': 0.0, 'mxns': 3.0, 'beta': -1.0, 
+            'tflag': 1, 'acc2': 1.5, 'grflag' : 1, 'remnantflag': 4, 'ceflag': 0, 'eddfac': 1.0, 'ifflag': 0, 'bconst': 3000, 
+            'sigma': 265.0, 'gamma': -2.0, 'pisn': 45.0, 
+            'natal_kick_array' : [[-100.0,-100.0,-100.0,-100.0,0.0], [-100.0,-100.0,-100.0,-100.0,0.0]], 'bhsigmafrac' : 1.0, 
+            'polar_kick_angle' : 90, 'qcrit_array' : [0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0], 
+            'cekickflag' : 2, 'cehestarflag' : 0, 'cemergeflag' : 0, 'ecsn' : 2.95, 'ecsn_mlow' : 2.6, 'aic' : 1, 'ussn' : 0, 
+            'sigmadiv' :-20.0, 'qcflag' : 5, 'eddlimflag' : 0, 
+            'fprimc_array' : [2.0/21.0,2.0/21.0,2.0/21.0,2.0/21.0,2.0/21.0,2.0/21.0,2.0/21.0,2.0/21.0,2.0/21.0,2.0/21.0,2.0/21.0,2.0/21.0,2.0/21.0,2.0/21.0,2.0/21.0,2.0/21.0], 
+            'bhspinflag' : 0, 'bhspinmag' : 0.0, 'rejuv_fac' : 1.0, 'rejuvflag' : 0, 'htpmb' : 1, 'ST_cr' : 1, 'ST_tide' : 1, 
+            'bdecayfac' : 1, 'rembar_massloss' : 0.5, 'kickflag' : 5, 'zsun' : 0.014, 'bhms_coll_flag' : 0, 'don_lim' : -1, 
+            'acc_lim' : -1, 'rtmsflag' : 0, 'wd_mass_lim': 1}
+
+alpha_var = {'xi': 1.0, 'bhflag': 1, 'neta': 0.5, 'windflag': 3, 'wdflag': 1, 'alpha1': 5.0, 'pts1': 0.001, 'pts3': 0.02, 
+            'pts2': 0.01, 'epsnov': 0.001, 'hewind': 0.5, 'ck': 1000, 'bwind': 0.0, 'lambdaf': 0.0, 'mxns': 3.0, 'beta': -1.0, 
+            'tflag': 1, 'acc2': 1.5, 'grflag' : 1, 'remnantflag': 4, 'ceflag': 0, 'eddfac': 1.0, 'ifflag': 0, 'bconst': 3000, 
+            'sigma': 265.0, 'gamma': -2.0, 'pisn': 45.0, 
+            'natal_kick_array' : [[-100.0,-100.0,-100.0,-100.0,0.0], [-100.0,-100.0,-100.0,-100.0,0.0]], 'bhsigmafrac' : 1.0, 
+            'polar_kick_angle' : 90, 'qcrit_array' : [0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0], 
+            'cekickflag' : 2, 'cehestarflag' : 0, 'cemergeflag' : 0, 'ecsn' : 2.5, 'ecsn_mlow' : 1.8, 'aic' : 1, 'ussn' : 0, 
+            'sigmadiv' :-20.0, 'qcflag' : 5, 'eddlimflag' : 0, 
+            'fprimc_array' : [2.0/21.0,2.0/21.0,2.0/21.0,2.0/21.0,2.0/21.0,2.0/21.0,2.0/21.0,2.0/21.0,2.0/21.0,2.0/21.0,2.0/21.0,2.0/21.0,2.0/21.0,2.0/21.0,2.0/21.0,2.0/21.0], 
+            'bhspinflag' : 0, 'bhspinmag' : 0.0, 'rejuv_fac' : 1.0, 'rejuvflag' : 0, 'htpmb' : 1, 'ST_cr' : 1, 'ST_tide' : 1, 
+            'bdecayfac' : 1, 'rembar_massloss' : 0.5, 'kickflag' : 5, 'zsun' : 0.014, 'bhms_coll_flag' : 0, 'don_lim' : -1, 
+            'acc_lim' : -1, 'rtmsflag' : 0, 'wd_mass_lim': 1}
+
+if namespace.model == 'fiducial':
+    BSEDict = fiducial
+elif namespace.model == 'kick_var':
+    BSEDict = kick_var
+elif namespace.model == 'qc_var':
+    BSEDict = qc_var
+elif namespace.model == 'ecsn_var':
+    BSEDict = ecsn_var
+elif namespace.model == 'alpha_var':
+    BSEDict = alpha_var
 
 
 # STEP 2 : Define the functions
@@ -37,7 +114,7 @@ def create_dimensions():
     OUT:
         As Output, this should return a list containing all the instances of Dimension class.
     """
-    m1 = classes.Dimension('Mass_1', 0.7, 150, sampler.kroupa, prior.kroupa)
+    m1 = classes.Dimension('Mass_1', 3, 150, sampler.kroupa, prior.kroupa)
     q = classes.Dimension('q', 0, 1, sampler.uniform, prior.uniform)
     porb = classes.Dimension('Porb', 0.15, 5.5, sampler.sana, prior.sana)
     # porb = classes.Dimension('Porb', 0.5, 1e7, sampler.flat_in_log, prior.flat_in_log)
@@ -106,18 +183,18 @@ def configure_code_run_cosmic(batch):
     This function tells stroopwafel how to evolve binaries with cosmic
     """
     pop_length = len(batch['samples'])
-    BSEDict = {'xi': 1.0, 'bhflag': 1, 'neta': 0.5, 'windflag': 3, 'wdflag': 1, 'alpha1': 1.0, 'pts1': 0.001, 'pts3': 0.02, 
-            'pts2': 0.01, 'epsnov': 0.001, 'hewind': 0.5, 'ck': 1000, 'bwind': 0.0, 'lambdaf': 0.0, 'mxns': 3.0, 'beta': -1.0, 
-            'tflag': 1, 'acc2': 1.5, 'grflag' : 1, 'remnantflag': 4, 'ceflag': 0, 'eddfac': 1.0, 'ifflag': 0, 'bconst': 3000, 
-            'sigma': 265.0, 'gamma': -2.0, 'pisn': 45.0, 
-            'natal_kick_array' : [[-100.0,-100.0,-100.0,-100.0,0.0], [-100.0,-100.0,-100.0,-100.0,0.0]], 'bhsigmafrac' : 1.0, 
-            'polar_kick_angle' : 90, 'qcrit_array' : [0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0], 
-            'cekickflag' : 2, 'cehestarflag' : 0, 'cemergeflag' : 0, 'ecsn' : 2.5, 'ecsn_mlow' : 1.4, 'aic' : 1, 'ussn' : 0, 
-            'sigmadiv' :-20.0, 'qcflag' : 2, 'eddlimflag' : 0, 
-            'fprimc_array' : [2.0/21.0,2.0/21.0,2.0/21.0,2.0/21.0,2.0/21.0,2.0/21.0,2.0/21.0,2.0/21.0,2.0/21.0,2.0/21.0,2.0/21.0,2.0/21.0,2.0/21.0,2.0/21.0,2.0/21.0,2.0/21.0], 
-            'bhspinflag' : 0, 'bhspinmag' : 0.0, 'rejuv_fac' : 1.0, 'rejuvflag' : 0, 'htpmb' : 1, 'ST_cr' : 1, 'ST_tide' : 1, 
-            'bdecayfac' : 1, 'rembar_massloss' : 0.5, 'kickflag' : 1, 'zsun' : 0.014, 'bhms_coll_flag' : 0, 'don_lim' : -1, 
-            'acc_lim' : -1, 'rtmsflag' : 0, 'wd_mass_lim': 1}
+    # BSEDict = {'xi': 1.0, 'bhflag': 1, 'neta': 0.5, 'windflag': 3, 'wdflag': 1, 'alpha1': 1.0, 'pts1': 0.001, 'pts3': 0.02, 
+    #         'pts2': 0.01, 'epsnov': 0.001, 'hewind': 0.5, 'ck': 1000, 'bwind': 0.0, 'lambdaf': 0.0, 'mxns': 3.0, 'beta': -1.0, 
+    #         'tflag': 1, 'acc2': 1.5, 'grflag' : 1, 'remnantflag': 4, 'ceflag': 0, 'eddfac': 1.0, 'ifflag': 0, 'bconst': 3000, 
+    #         'sigma': 265.0, 'gamma': -2.0, 'pisn': 45.0, 
+    #         'natal_kick_array' : [[-100.0,-100.0,-100.0,-100.0,0.0], [-100.0,-100.0,-100.0,-100.0,0.0]], 'bhsigmafrac' : 1.0, 
+    #         'polar_kick_angle' : 90, 'qcrit_array' : [0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0], 
+    #         'cekickflag' : 2, 'cehestarflag' : 0, 'cemergeflag' : 0, 'ecsn' : 2.5, 'ecsn_mlow' : 1.4, 'aic' : 1, 'ussn' : 0, 
+    #         'sigmadiv' :-20.0, 'qcflag' : 2, 'eddlimflag' : 0, 
+    #         'fprimc_array' : [2.0/21.0,2.0/21.0,2.0/21.0,2.0/21.0,2.0/21.0,2.0/21.0,2.0/21.0,2.0/21.0,2.0/21.0,2.0/21.0,2.0/21.0,2.0/21.0,2.0/21.0,2.0/21.0,2.0/21.0,2.0/21.0], 
+    #         'bhspinflag' : 0, 'bhspinmag' : 0.0, 'rejuv_fac' : 1.0, 'rejuvflag' : 0, 'htpmb' : 1, 'ST_cr' : 1, 'ST_tide' : 1, 
+    #         'bdecayfac' : 1, 'rembar_massloss' : 0.5, 'kickflag' : 1, 'zsun' : 0.014, 'bhms_coll_flag' : 0, 'don_lim' : -1, 
+    #         'acc_lim' : -1, 'rtmsflag' : 0, 'wd_mass_lim': 1}
     batch_initial = InitialBinaryTable.InitialBinaries(m1=batch['grid']['Mass_1'], m2=batch['grid']['Mass_2'], porb=batch['grid']['Porb'], 
                                                        ecc=batch['grid']['Eccentricity'], tphysf=np.full(pop_length, 13700), 
                                                        kstar1=np.full(pop_length, 1), kstar2=np.full(pop_length, 1), 
@@ -183,6 +260,8 @@ def interesting_systems_cosmic(batch):
                                     m_2 = interesting_systems_table.mass_2.values * u.Msun)
     merge_mask = merge_times < (13.7 * u.Gyr)
     interesting_systems_table = interesting_systems_table[merge_mask]
+    interesting_nums = interesting_systems_table.bin_num.values
+    interesting_systems_mask = np.isin(bpp.bin_num.values, interesting_nums)
 
     bin_nums = interesting_systems_table.index
     for sample in batch['samples']:
@@ -335,7 +414,7 @@ if __name__ == '__main__':
             print(cosmic_filename)
             # output_folder =  os.path.join(os.getcwd(), 'output/' + pair + '/' + str(metallicity)) # Folder you want to receieve outputs, here the current working directory, but you can specify anywhere
             # output_folder =  os.path.join(os.getcwd(), 'reject_test/' + pair + '/' + str(metallicity)) # Folder you want to receieve outputs, here the current working directory, but you can specify anywhere
-            output_folder = os.path.join(os.getcwd(), 'output/' + pair + '/hubble_merge') # Folder you want to receieve outputs, here the current working directory, but you can specify anywhere
+            output_folder = os.path.join(os.getcwd(), 'output/' + pair + '/' + namespace.model) # Folder you want to receieve outputs, here the current working directory, but you can specify anywhere
             if os.path.exists(output_folder):
                 if NUM_CPU_CORES > 1: #Temporary workaround when running with sbatch, doesn't require confirmation
                     shutil.rmtree(output_folder)

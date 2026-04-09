@@ -8,7 +8,10 @@ from .constants import *
 import sys
 # Add pandas import
 import pandas as pd
+import h5py
 import time
+import tempfile
+import memory_profiler
 from schwimmbad import MultiPool
 
 class Cosmic:
@@ -296,12 +299,21 @@ class Cosmic:
             batch['initC']['bin_num'] += self.finished
             batch['kick_info']['bin_num'] += self.finished
 
+            # flag for pessimistic vs optimistic CE
+            CE1_pess_bn = batch['bpp'].loc[(batch['bpp'].RRLO_1 > 1) & (batch['bpp'].kstar_1.isin([1,2,7,8,9]) & (batch['bpp'].evol_type == 7))].bin_num.unique()
+            CE2_pess_bn = batch['bpp'].loc[(batch['bpp'].RRLO_2 > 1) & (batch['bpp'].kstar_2.isin([1,2,7,8,9]) & (batch['bpp'].evol_type == 7))].bin_num.unique()
+            pessimistic_flag = batch['initC']['bin_num'].isin(CE1_pess_bn) | batch['initC']['bin_num'].isin(CE2_pess_bn)
+            batch['initC']['pessimistic_CE_flag'] = pessimistic_flag
+            
+
             first_DCO_only = batch['bpp'].loc[mask].drop_duplicates(subset=['bin_num'], keep='first')
-            DCO_initC = batch['initC'].loc[batch['initC'].bin_num.isin(first_DCO_only.bin_num)]
+            DCO_mask = batch['initC'].bin_num.isin(first_DCO_only.bin_num)
+            DCO_initC = batch['initC'].loc[DCO_mask]
+
 
             trimmed_initC = batch['initC'][['mass_1', 'mass_2', 
                                             'metallicity', 'kstar_1', 
-                                            'kstar_2', 'bin_num']]
+                                            'kstar_2', 'bin_num', 'is_hit', 'pessimistic_CE_flag']]
 
             # Adjust indices and save to h5 files
             DCO_initC = DCO_initC.reset_index(drop=True)
@@ -400,7 +412,8 @@ class Cosmic:
         print_logs(self.output_folder, "p", entropy_change)
         self.entropies.append(entropy_change)
         # self.add_original_forgotten_distributions()
-
+    
+    # @profile
     def calculate_weights_of_samples(self):
         reading_start = time.time()
         locations = read_samples(self.output_filename, self.dimensions)
@@ -411,9 +424,14 @@ class Cosmic:
         [pi.append(location.calculate_prior_probability() * pi_norm) for location in locations]
         pi = np.asarray(pi)
         num_samples = len(locations)
+
+
         samples = []
         [samples.append(location.to_array()) for location in locations]
         samples = np.asarray(samples)
+
+
+
         fraction_explored = self.num_explored / float(num_samples)
         den = np.ones(num_samples) * (fraction_explored) * pi
         gen_loop_start = time.time()
@@ -437,21 +455,35 @@ class Cosmic:
             [alpha.append(distribution.alpha) for distribution in distributions]
             append_end = time.time()
             append_time += append_end - append_start
-            xPDF = np.zeros((num_distributions, num_samples))
-            xPDF_start = time.time()
-            for i in range(num_distributions):
-                xPDF[i, :] = multivariate_normal.pdf(samples, mu[i], sigma[i], allow_singular = True)
-            xPDF_end = time.time()
-            xPDF_time += xPDF_end - xPDF_start
-            xPDF = xPDF.T
+
+            ### GRADUAL BUILDING OF DEN ###
+            print("Mean q_norm: ", np.mean([distribution.rejection_rate for distribution in distributions]))
+            print("Max q_norm: ", np.max([distribution.rejection_rate for distribution in distributions]))
+            print("Min q_norm: ", np.min([distribution.rejection_rate for distribution in distributions]))
             q_norm = 1 / (1 - distributions[0].rejection_rate)
-            q_PDF = xPDF * np.asarray(alpha)
-            den += (np.sum(q_PDF, axis = 1) * (1 - fraction_explored) * q_norm) / NUM_GENERATIONS
+            xPDF_start = time.time()
+            for i, dist in enumerate(distributions):
+                xPDFrow = multivariate_normal.pdf(samples, mu[i], sigma[i], allow_singular = True)
+                xPDFrow *= alpha[i]
+                den += (xPDFrow * (1 - fraction_explored) * q_norm) / NUM_GENERATIONS
+            xPDF_time = time.time() - xPDF_start
+
+            ### RAM HEAVY ###
+            # xPDF = np.zeros((num_distributions, num_samples))
+            # xPDF_start = time.time()
+            # for i in range(num_distributions):
+            #     xPDF[i, :] = multivariate_normal.pdf(samples, mu[i], sigma[i], allow_singular = True)
+            # xPDF_end = time.time()
+            # xPDF_time += xPDF_end - xPDF_start
+            # xPDF = xPDF.T
+            # q_norm = 1 / (1 - distributions[0].rejection_rate)
+            # q_PDF = xPDF * np.asarray(alpha)
+            # den += (np.sum(q_PDF, axis = 1) * (1 - fraction_explored) * q_norm) / NUM_GENERATIONS
         gen_loop_end = time.time()
         weights = pi / den
-        [location.properties.update({'mixture_weight' : weights[index]}) for index, location in enumerate(locations)]
-        [location.revert_variables_to_original_scales() for location in locations]
-        print_samples(locations, self.output_filename, 'w')
+        # [location.properties.update({'mixture_weight' : weights[index]}) for index, location in enumerate(locations)]
+        # [location.revert_variables_to_original_scales() for location in locations]
+        # print_samples(locations, self.output_filename, 'w')
         # Concatenate bpp and initC DataFrames from all batches
         concat_start = time.time()
         # full_bpp = pd.concat(self.all_bpp, ignore_index=True)
@@ -464,14 +496,14 @@ class Cosmic:
         # for bin_num in range(len(locations)):
         #     full_bpp.loc[full_bpp['bin_num'] == bin_num, 'mixture_weight'] = weights[bin_num]
         #     full_initC.loc[full_initC['bin_num'] == bin_num, 'mixture_weight'] = weights[bin_num]
-        bin_nums = range(len(locations))
+        bin_nums = range(len(samples))
         # full_bpp.loc[full_bpp['bin_num'].isin(bin_nums), 'mixture_weight'] = full_bpp['bin_num'].map(dict(zip(bin_nums, weights)))
         # full_initC.loc[full_initC['bin_num'].isin(bin_nums), 'mixture_weight'] = full_initC['bin_num'].map(dict(zip(bin_nums, weights)))
         update_end = time.time()
 
         # print(full_bpp)
         # print(full_initC)
-        print("Locations: ", len(locations))
+        print("Locations: ", len(samples))
         print("Weights: ", len(weights))
 
         df_weights = pd.DataFrame({'bin_num': bin_nums, 'mixture_weight': weights})

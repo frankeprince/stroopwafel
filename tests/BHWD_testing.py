@@ -104,9 +104,6 @@ elif namespace.model == 'alpha_var':
     BSEDict = alpha_var
 
 
-
-
-
 # STEP 2 : Define the functions
 def create_dimensions():
     """
@@ -266,7 +263,7 @@ def interesting_systems_cosmic(batch):
     interesting_nums = interesting_systems_table.bin_num.values
     interesting_systems_mask = np.isin(bpp.bin_num.values, interesting_nums)
 
-    bin_nums = interesting_systems_table.bin_num.values
+    bin_nums = interesting_systems_table.index
     for sample in batch['samples']:
         sample.properties['is_hit'] = 0
     for bin_num in bin_nums:
@@ -393,7 +390,7 @@ if __name__ == '__main__':
     # metallicities = [0.0001, 0.0142, 0.03]
     # pairs = ['BHWD']
     pairs = ['BHWD', 'NSNS', 'BHNS', 'BHBH', 'NSWD']
-    pairs = ["BHBH"]
+    pairs = ["BHWD"]
     # pairs = ['all']
     start_time = time.time()
     #Define the parameters to the constructor of stroopwafel

@@ -92,6 +92,19 @@ alpha_var = {'xi': 1.0, 'bhflag': 1, 'neta': 0.5, 'windflag': 3, 'wdflag': 1, 'a
             'bdecayfac' : 1, 'rembar_massloss' : 0.5, 'kickflag' : 5, 'zsun' : 0.014, 'bhms_coll_flag' : 0, 'don_lim' : -1, 
             'acc_lim' : -1, 'rtmsflag' : 0, 'wd_mass_lim': 1}
 
+no_ecsn = {'xi': 1.0, 'bhflag': 1, 'neta': 0.5, 'windflag': 3, 'wdflag': 1, 'alpha1': 1.0, 'pts1': 0.001, 'pts3': 0.02, 
+            'pts2': 0.01, 'epsnov': 0.001, 'hewind': 0.5, 'ck': 1000, 'bwind': 0.0, 'lambdaf': 0.0, 'mxns': 3.0, 'beta': -1.0, 
+            'tflag': 1, 'acc2': 1.5, 'grflag' : 1, 'remnantflag': 4, 'ceflag': 0, 'eddfac': 1.0, 'ifflag': 0, 'bconst': 3000, 
+            'sigma': 265.0, 'gamma': -2.0, 'pisn': 45.0, 
+            'natal_kick_array' : [[-100.0,-100.0,-100.0,-100.0,0.0], [-100.0,-100.0,-100.0,-100.0,0.0]], 'bhsigmafrac' : 1.0, 
+            'polar_kick_angle' : 90, 'qcrit_array' : [0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0], 
+            'cekickflag' : 2, 'cehestarflag' : 0, 'cemergeflag' : 0, 'ecsn' : 0, 'ecsn_mlow' : 0, 'aic' : 1, 'ussn' : 0, 
+            'sigmadiv' :-20.0, 'qcflag' : 5, 'eddlimflag' : 0, 
+            'fprimc_array' : [2.0/21.0,2.0/21.0,2.0/21.0,2.0/21.0,2.0/21.0,2.0/21.0,2.0/21.0,2.0/21.0,2.0/21.0,2.0/21.0,2.0/21.0,2.0/21.0,2.0/21.0,2.0/21.0,2.0/21.0,2.0/21.0], 
+            'bhspinflag' : 0, 'bhspinmag' : 0.0, 'rejuv_fac' : 1.0, 'rejuvflag' : 0, 'htpmb' : 1, 'ST_cr' : 1, 'ST_tide' : 1, 
+            'bdecayfac' : 1, 'rembar_massloss' : 0.5, 'kickflag' : 5, 'zsun' : 0.014, 'bhms_coll_flag' : 0, 'don_lim' : -1, 
+            'acc_lim' : -1, 'rtmsflag' : 0, 'wd_mass_lim': 1}
+
 if namespace.model == 'fiducial':
     BSEDict = fiducial
 elif namespace.model == 'kick_var':
@@ -102,9 +115,8 @@ elif namespace.model == 'ecsn_var':
     BSEDict = ecsn_var
 elif namespace.model == 'alpha_var':
     BSEDict = alpha_var
-
-
-
+elif namespace.model == 'no_ecsn':
+    BSEDict = no_ecsn   
 
 
 # STEP 2 : Define the functions
@@ -117,8 +129,8 @@ def create_dimensions():
     OUT:
         As Output, this should return a list containing all the instances of Dimension class.
     """
-    m1 = classes.Dimension('Mass_1', 5, 150, sampler.kroupa, prior.kroupa)
-    q = classes.Dimension('q', 0.0, 1, sampler.uniform, prior.uniform)
+    m1 = classes.Dimension('Mass_1', 3, 150, sampler.kroupa, prior.kroupa)
+    q = classes.Dimension('q', 0, 1, sampler.uniform, prior.uniform)
     porb = classes.Dimension('Porb', 0.15, 5.5, sampler.sana, prior.sana)
     # porb = classes.Dimension('Porb', 0.5, 1e7, sampler.flat_in_log, prior.flat_in_log)
     ecc = classes.Dimension('Eccentricity', 0.000000001, 0.99999999, sampler.sana_ecc, prior.sana_ecc)
@@ -266,7 +278,7 @@ def interesting_systems_cosmic(batch):
     interesting_nums = interesting_systems_table.bin_num.values
     interesting_systems_mask = np.isin(bpp.bin_num.values, interesting_nums)
 
-    bin_nums = interesting_systems_table.bin_num.values
+    bin_nums = interesting_systems_table.index
     for sample in batch['samples']:
         sample.properties['is_hit'] = 0
     for bin_num in bin_nums:
@@ -393,7 +405,7 @@ if __name__ == '__main__':
     # metallicities = [0.0001, 0.0142, 0.03]
     # pairs = ['BHWD']
     pairs = ['BHWD', 'NSNS', 'BHNS', 'BHBH', 'NSWD']
-    pairs = ["BHBH"]
+    pairs = ["NSWD"]
     # pairs = ['all']
     start_time = time.time()
     #Define the parameters to the constructor of stroopwafel
